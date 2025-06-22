@@ -1,0 +1,9 @@
+
+---
+const { title, link, summary, tags, pdf } = Astro.props;
+---
+
+<article style="border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem;">
+  <h3><a href={link} target="_blank">{title}</a></h3>
+  <p>{summary}</p>
+</article>

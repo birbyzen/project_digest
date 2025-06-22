@@ -1,0 +1,178 @@
+---
+import { fetchArticles } from '../data/articles';
+const articles = await fetchArticles();
+const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
+---
+
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Project Digest</title>
+    <style>
+      body { font-family: sans-serif; padding:20px }
+      #search { padding:8px; margin:10px 0; width:100%; box-sizing:border-box }
+      #filters button { margin:0 5px 5px 0 }
+      
+      /* ─── Сетка для карточек ─── */
+      #list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      @media (min-width: 768px) {
+        #list {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      .card {
+        border:1px solid #ccc;
+        padding:10px;
+        margin:0; /* отступы теперь задаёт gap */
+        background:#fff;
+        border-radius:4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .tags li {
+        display:inline-block;
+        background:#eef;
+        padding:2px 6px;
+        margin:2px;
+        border-radius:4px;
+        font-size:.85em;
+      }
+
+      #pagination {
+        margin-top:20px;
+        display:flex;
+        align-items:center;
+        gap:10px;
+      }
+      #pagination button {
+        padding:6px 12px;
+        cursor:pointer;
+      }
+      #pagination button:disabled {
+        opacity:.5;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Дайджест по управлению проектами</h1>
+
+    <!-- Поиск -->
+    <input id="search" type="text" placeholder="Поиск…"/>
+
+    <!-- Тег-фильтры -->
+    <div id="filters">
+      <button data-tag="">Все</button>
+      {uniqueTags.map(tag => <button data-tag={tag}>{tag}</button>)}
+    </div>
+
+    <!-- Список статей -->
+    <div id="list" data-articles={JSON.stringify(articles)}></div>
+
+    <!-- Пагинация -->
+    <div id="pagination">
+      <button id="prev" disabled>← Предыдущая</button>
+      <span id="page-info">Страница 1 из 1</span>
+      <button id="next" disabled>Следующая →</button>
+    </div>
+
+    <script>
+      (function(){
+        const listEl   = document.getElementById('list');
+        const inputEl  = document.getElementById('search');
+        const filtEl   = document.getElementById('filters');
+        const prevBtn  = document.getElementById('prev');
+        const nextBtn  = document.getElementById('next');
+        const pageInfo = document.getElementById('page-info');
+
+        const all       = JSON.parse(listEl.dataset.articles);
+        let filtered    = all.slice();        // массив после фильтра/поиска
+        const pageSize  = 15;                 // карточек на странице
+        let currentPage = 1;                  // начиная с 1
+
+        // Рендерит указанную страницу массива
+        function renderPage() {
+          const start = (currentPage - 1) * pageSize;
+          const pageItems = filtered.slice(start, start + pageSize);
+          listEl.innerHTML = pageItems.map(a =>
+            `<article class="card">
+               <h3><a href="${a.link}" target="_blank">${a.title}</a></h3>
+               <p>${a.summary}</p>
+               ${a.tags.length
+                 ? `<ul class="tags">${a.tags.map(t=>`<li>${t}</li>`).join('')}</ul>`
+                 : ''
+               }
+             </article>`
+          ).join('');
+
+          // Обновляем состояние кнопок и инфо
+          const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+          prevBtn.disabled = currentPage <= 1;
+          nextBtn.disabled = currentPage >= totalPages;
+          pageInfo.textContent = `Страница ${currentPage} из ${totalPages}`;
+        }
+
+        // Применяет поиск + фильтр и сбрасывает на первую страницу
+        function applyFilter() {
+          const q = inputEl.value.trim().toLowerCase();
+          const activeTag = filtEl.querySelector('button.active')?.dataset.tag || '';
+          filtered = all
+            .filter(a => !activeTag || a.tags.includes(activeTag))
+            .filter(a => !q || a.title.toLowerCase().includes(q) || a.summary.toLowerCase().includes(q));
+          currentPage = 1;
+          renderPage();
+        }
+
+        // Навешиваем события
+        filtEl.addEventListener('click', e => {
+          if (e.target.tagName !== 'BUTTON') return;
+          // помечаем кнопку
+          filtEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          applyFilter();
+        });
+        inputEl.addEventListener('input', applyFilter);
+
+        prevBtn.addEventListener('click', () => {
+          if (currentPage > 1) {
+            currentPage--;
+            renderPage();
+          }
+        });
+        nextBtn.addEventListener('click', () => {
+          const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+          if (currentPage < totalPages) {
+            currentPage++;
+            renderPage();
+          }
+        });
+
+        // Инициализация
+        // Помечаем кнопку "Все" как активную
+        filtEl.querySelector('button[data-tag=""]').classList.add('active');
+        renderPage();
+      })();
+    </script>
+    <!-- ─── Футер с контактами ─── -->
+    <footer style="
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+      font-size: 0.9em;
+      color: #555;
+      text-align: center;
+    ">
+      <p>© 2025 Борис Ишкин</p>
+      <p>
+        Мой сайт: 
+        <a href="https://ishkin.ru" target="_blank" rel="noopener">ishkin.ru</a> |
+        Телеграм: 
+        <a href="https://t.me/analytics_today" target="_blank" rel="noopener">@analytics_today</a>
+      </p>
+    </footer>
+  </body>
+</html>
