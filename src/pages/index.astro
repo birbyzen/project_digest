@@ -7,68 +7,67 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Project Digest</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; }
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Digest</title>
+    <style>
+      body { font-family: sans-serif; padding: 20px; }
 
-    header, footer {
-      text-align: center;
-      padding: 2rem 1rem;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 1.5rem;
-    }
-    footer p { margin: 0.25rem 0; }
-
-    #search { padding: 0.5rem; width: 100%; box-sizing: border-box; }
-    #filters button { margin: 0 5px 5px 0; }
-
-    /* Сетка карточек */
-    #list {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
-    @media (min-width: 768px) {
-      #list {
-        grid-template-columns: repeat(2, 1fr);
+      header, footer {
+        text-align: center;
+        padding: 2rem 1rem;
       }
-    }
+      header h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+      footer p { margin: 0.25rem 0; }
 
-    .card {
-      border: 1px solid #ccc;
-      padding: 1rem;
-      background: #fff;
-      border-radius: 4px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .tags li {
-      display: inline-block;
-      background: #eef;
-      padding: 2px 6px;
-      margin: 2px;
-      border-radius: 4px;
-      font-size: .85em;
-    }
+      #search { padding: 0.5rem; width: 100%; box-sizing: border-box; }
+      #filters button { margin: 0 5px 5px 0; }
 
-    #pagination {
-      margin-top: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    #pagination button { padding: 6px 12px; }
-    
-    /* Адаптив заголовка и футера */
-    @media (max-width: 600px) {
-      header h1 { font-size: 1.25rem; }
-      footer { font-size: .95rem; padding: 1.5rem 1rem; }
-    }
-  </style>
-</head>
- 
+      /* Сетка карточек */
+      #list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      @media (min-width: 768px) {
+        #list {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      .card {
+        border: 1px solid #ccc;
+        padding: 1rem;
+        background: #fff;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .tags li {
+        display: inline-block;
+        background: #eef;
+        padding: 2px 6px;
+        margin: 2px;
+        border-radius: 4px;
+        font-size: .85em;
+      }
+
+      #pagination {
+        margin-top: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #pagination button { padding: 6px 12px; }
+      
+      /* Адаптив заголовка и футера */
+      @media (max-width: 600px) {
+        header h1 { font-size: 1.25rem; }
+        footer { font-size: .95rem; padding: 1.5rem 1rem; }
+      }
+    </style>
+  </head>
   <body>
     <h1>Дайджест по управлению проектами</h1>
 
@@ -102,7 +101,7 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
 
         const all       = JSON.parse(listEl.dataset.articles);
         let filtered    = all.slice();        // массив после фильтра/поиска
-        const pageSize  = 15;                 // карточек на странице
+        const pageSize  = 20;                 // карточек на странице
         let currentPage = 1;                  // начиная с 1
 
         // Рендерит указанную страницу массива
@@ -113,9 +112,15 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
             `<article class="card">
                <h3><a href="${a.link}" target="_blank">${a.title}</a></h3>
                <p>${a.summary}</p>
-               ${a.tags.length
-                 ? `<ul class="tags">${a.tags.map(t=>`<li>${t}</li>`).join('')}</ul>`
-                 : ''
+               ${
+                 a.pdf
+                   ? `<p><a href="${a.pdf}" target="_blank" rel="noopener">PDF</a></p>`
+                   : ``
+               }
+               ${
+                 a.tags.length
+                   ? `<ul class="tags">${a.tags.map(t=>`<li>${t}</li>`).join('')}</ul>`
+                   : ''
                }
              </article>`
           ).join('');
@@ -141,7 +146,6 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
         // Навешиваем события
         filtEl.addEventListener('click', e => {
           if (e.target.tagName !== 'BUTTON') return;
-          // помечаем кнопку
           filtEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
           e.target.classList.add('active');
           applyFilter();
@@ -163,11 +167,11 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
         });
 
         // Инициализация
-        // Помечаем кнопку "Все" как активную
         filtEl.querySelector('button[data-tag=""]').classList.add('active');
         renderPage();
       })();
     </script>
+
     <!-- ─── Футер с контактами ─── -->
     <footer style="
       margin-top: 40px;
@@ -179,9 +183,9 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
     ">
       <p>© 2025 Борис Ишкин</p>
       <p>
-        Мой сайт: 
+        Мой сайт:
         <a href="https://ishkin.ru" target="_blank" rel="noopener">ishkin.ru</a> |
-        Телеграм: 
+        Телеграм:
         <a href="https://t.me/analytics_today" target="_blank" rel="noopener">@analytics_today</a>
       </p>
     </footer>
