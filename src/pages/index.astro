@@ -1,7 +1,9 @@
 ---
 import { fetchArticles } from '../data/articles';
 const articles = await fetchArticles();
-const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
+const uniqueTags = Array.from(
+  new Set(articles.flatMap(a => a.tags))
+).sort();
 ---
 
 <html lang="ru">
@@ -11,38 +13,35 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
     <title>Project Digest</title>
     <style>
       body { font-family: sans-serif; padding: 20px; }
-
-      header, footer {
-        text-align: center;
-        padding: 2rem 1rem;
-      }
-      header h1 {
-        margin: 0;
-        font-size: 1.5rem;
-      }
+      header, footer { text-align: center; padding: 2rem 1rem; }
+      header h1 { margin: 0; font-size: 1.5rem; }
       footer p { margin: 0.25rem 0; }
-
       #search { padding: 0.5rem; width: 100%; box-sizing: border-box; }
       #filters button { margin: 0 5px 5px 0; }
-
-      /* Сетка карточек */
-      #list {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 1rem;
-      }
+      #list { display: grid; grid-template-columns: 1fr; gap: 1rem; }
       @media (min-width: 768px) {
-        #list {
-          grid-template-columns: repeat(2, 1fr);
-        }
+        #list { grid-template-columns: repeat(2, 1fr); }
       }
-
       .card {
         border: 1px solid #ccc;
         padding: 1rem;
         background: #fff;
         border-radius: 4px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .card h3 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0 0 0.5em;
+      }
+      .fav-btn {
+        background: none;
+        border: none;
+        font-size: 1.2em;
+        cursor: pointer;
+        color: gold;
+        line-height: 1;
       }
       .tags li {
         display: inline-block;
@@ -52,7 +51,6 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
         border-radius: 4px;
         font-size: .85em;
       }
-
       #pagination {
         margin-top: 20px;
         display: flex;
@@ -60,8 +58,6 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
         gap: 10px;
       }
       #pagination button { padding: 6px 12px; }
-      
-      /* Адаптив заголовка и футера */
       @media (max-width: 600px) {
         header h1 { font-size: 1.25rem; }
         footer { font-size: .95rem; padding: 1.5rem 1rem; }
@@ -72,11 +68,12 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
     <h1>Дайджест по управлению проектами</h1>
 
     <!-- Поиск -->
-    <input id="search" type="text" placeholder="Поиск…"/>
+    <input id="search" type="text" placeholder="Поиск…" />
 
     <!-- Тег-фильтры -->
     <div id="filters">
       <button data-tag="">Все</button>
+      <button data-tag="favorites">Избранное</button>
       {uniqueTags.map(tag => <button data-tag={tag}>{tag}</button>)}
     </div>
 
@@ -100,70 +97,89 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
         const pageInfo = document.getElementById('page-info');
 
         const all       = JSON.parse(listEl.dataset.articles);
-        let filtered    = all.slice();        // массив после фильтра/поиска
-        const pageSize  = 20;                 // карточек на странице
-        let currentPage = 1;                  // начиная с 1
+        let filtered    = all.slice();
+        const pageSize  = 20;
+        let currentPage = 1;
 
-        // Рендерит указанную страницу массива
+        // Загрузка/инициализация списка избранных
+        let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+
         function renderPage() {
           const start = (currentPage - 1) * pageSize;
           const pageItems = filtered.slice(start, start + pageSize);
-          listEl.innerHTML = pageItems.map(a =>
-            `<article class="card">
-               <h3><a href="${a.link}" target="_blank">${a.title}</a></h3>
-               <p>${a.summary}</p>
-               ${
-                 a.pdf
-                   ? `<p><a href="${a.pdf}" target="_blank" rel="noopener">PDF</a></p>`
-                   : ``
-               }
-               ${
-                 a.tags.length
-                   ? `<ul class="tags">${a.tags.map(t=>`<li>${t}</li>`).join('')}</ul>`
-                   : ''
-               }
-             </article>`
-          ).join('');
 
-          // Обновляем состояние кнопок и инфо
+          listEl.innerHTML = pageItems.map(a => {
+            const isFav = favorites.includes(a.link);
+            return `
+            <article class="card">
+              <h3>
+                <a href="${a.link}" target="_blank">${a.title}</a>
+                <button class="fav-btn" data-link="${a.link}" title="${isFav ? 'Убрать из избранного' : 'В избранное'}">
+                  ${isFav ? '★' : '☆'}
+                </button>
+              </h3>
+              <p>${a.summary}</p>
+              ${ a.pdf
+                  ? `<p><a href="${a.pdf}" target="_blank" rel="noopener">PDF</a></p>`
+                  : '' }
+              ${ a.tags.length
+                  ? `<ul class="tags">${a.tags.map(t=>`<li>${t}</li>`).join('')}</ul>`
+                  : ''
+              }
+            </article>`;
+          }).join('');
+
           const totalPages = Math.ceil(filtered.length / pageSize) || 1;
           prevBtn.disabled = currentPage <= 1;
           nextBtn.disabled = currentPage >= totalPages;
           pageInfo.textContent = `Страница ${currentPage} из ${totalPages}`;
         }
 
-        // Применяет поиск + фильтр и сбрасывает на первую страницу
         function applyFilter() {
           const q = inputEl.value.trim().toLowerCase();
           const activeTag = filtEl.querySelector('button.active')?.dataset.tag || '';
-          filtered = all
-            .filter(a => !activeTag || a.tags.includes(activeTag))
-            .filter(a => !q || a.title.toLowerCase().includes(q) || a.summary.toLowerCase().includes(q));
+
+          filtered = all.filter(a => {
+            if (activeTag === 'favorites') {
+              return favorites.includes(a.link);
+            }
+            return !activeTag || a.tags.includes(activeTag);
+          }).filter(a => {
+            return !q
+              || a.title.toLowerCase().includes(q)
+              || a.summary.toLowerCase().includes(q);
+          });
+
           currentPage = 1;
           renderPage();
         }
 
-        // Навешиваем события
+        // Обработчик клика по кнопке-фильтру
         filtEl.addEventListener('click', e => {
           if (e.target.tagName !== 'BUTTON') return;
           filtEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
           e.target.classList.add('active');
           applyFilter();
         });
-        inputEl.addEventListener('input', applyFilter);
 
+        // Переключение избранного
+        listEl.addEventListener('click', e => {
+          if (!e.target.classList.contains('fav-btn')) return;
+          const link = e.target.dataset.link;
+          const idx = favorites.indexOf(link);
+          if (idx >= 0) favorites.splice(idx, 1);
+          else favorites.push(link);
+          localStorage.setItem('favorites', JSON.stringify(favorites));
+          renderPage();
+        });
+
+        inputEl.addEventListener('input', applyFilter);
         prevBtn.addEventListener('click', () => {
-          if (currentPage > 1) {
-            currentPage--;
-            renderPage();
-          }
+          if (currentPage > 1) { currentPage--; renderPage(); }
         });
         nextBtn.addEventListener('click', () => {
           const totalPages = Math.ceil(filtered.length / pageSize) || 1;
-          if (currentPage < totalPages) {
-            currentPage++;
-            renderPage();
-          }
+          if (currentPage < totalPages) { currentPage++; renderPage(); }
         });
 
         // Инициализация
@@ -172,14 +188,10 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
       })();
     </script>
 
-    <!-- ─── Футер с контактами ─── -->
     <footer style="
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #ddd;
-      font-size: 0.9em;
-      color: #555;
-      text-align: center;
+      margin-top: 40px; padding-top: 20px;
+      border-top: 1px solid #ddd; font-size: 0.9em;
+      color: #555; text-align: center;
     ">
       <p>© 2025 Борис Ишкин</p>
       <p>
@@ -189,21 +201,17 @@ const uniqueTags = Array.from(new Set(articles.flatMap(a => a.tags))).sort();
         <a href="https://t.me/analytics_today" target="_blank" rel="noopener">@analytics_today</a>
       </p>
     </footer>
-  </body>
-  <!-- Yandex.Metrika counter -->
-<script type="text/javascript" >
-   (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-   m[i].l=1*new Date();
-   for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
-   k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
-   (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
 
-   ym(103118856, "init", {
-        clickmap:true,
-        trackLinks:true,
-        accurateTrackBounce:true
-   });
-</script>
-<noscript><div><img src="https://mc.yandex.ru/watch/103118856" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
-<!-- /Yandex.Metrika counter -->
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript" >
+      (function(m,e,t,r,i,k,a){ /*…*/ })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+      ym(103118856, "init", { clickmap:true, trackLinks:true, accurateTrackBounce:true });
+    </script>
+    <noscript>
+      <div>
+        <img src="https://mc.yandex.ru/watch/103118856"
+             style="position:absolute; left:-9999px;" alt="" />
+      </div>
+    </noscript>
+  </body>
 </html>
