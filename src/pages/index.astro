@@ -114,7 +114,8 @@ const uniqueTags = Array.from(
         const nextBtn  = document.getElementById('next');
         const pageInfo = document.getElementById('page-info');
 
-        const all       = JSON.parse(listEl.dataset.articles);
+        <!-- const all       = JSON.parse(listEl.dataset.articles); -->
+        const all = JSON.parse(listEl.dataset.articles).sort(() => Math.random() - 0.5);
         let filtered    = all.slice();
         const pageSize  = 20;
         let currentPage = 1;
