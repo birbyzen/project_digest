@@ -8,24 +8,30 @@ const uniqueTags = Array.from(
 ).sort();
 
 // —————————————————————————————————————————————————————————————————————————————
-// Парсим RSS последнего поста Telegram через RSSHub
+// Парсим RSS последнего поста Telegram через RSSHub и достаём только ID
 // —————————————————————————————————————————————————————————————————————————————
 const CHANNEL = 'analytics_today';
 const RSS_URL = `https://rsshub.app/telegram/channel/${CHANNEL}`;
-let latestPost = null;
+let lastPostId: string | null = null;
 
 try {
   const parser = new RSSParser({
-    customFields: {
-      item: [['description', 'contentSnippet']]
-    }
+    customFields: { item: [['description', 'contentSnippet']] }
   });
   const feed = await parser.parseURL(RSS_URL);
-  latestPost = feed.items[0];
+  const latest = feed.items?.[0];
+  if (latest?.link) {
+    // ссылка вида "https://t.me/analytics_today/123"
+    lastPostId = latest.link.split('/').pop() || null;
+  }
 } catch (e) {
   console.warn('Не удалось получить ленту TG:', e);
 }
+
+// перемешиваем статьи каждый раз
+articles.sort(() => Math.random() - 0.5);
 ---
+
 <!DOCTYPE html>
 <html lang="ru">
   <head>
@@ -39,18 +45,14 @@ try {
       (function(m,e,t,r,i,k,a){
         m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
         m[i].l=1*new Date();
-        for (var j = 0; j < document.scripts.length; j++){
-          if (document.scripts[j].src === r) return;
+        for(let j=0; j<document.scripts.length; j++){
+          if(document.scripts[j].src===r) return;
         }
         k=e.createElement(t), a=e.getElementsByTagName(t)[0];
         k.async=1; k.src=r; a.parentNode.insertBefore(k,a);
-      })
-      (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+      })(window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
       ym(103118856, "init", {
-        clickmap:true,
-        trackLinks:true,
-        accurateTrackBounce:true,
-        webvisor:true
+        clickmap:true, trackLinks:true, accurateTrackBounce:true, webvisor:true
       });
     </script>
     <noscript>
@@ -65,47 +67,30 @@ try {
       body { font-family: sans-serif; padding: 20px; }
       header, footer { text-align: center; padding: 2rem 1rem; }
       header h1 { margin: 0; font-size: 1.5rem; }
-      footer p { margin: 0.25rem 0; }
       #search { padding: 0.5rem; width: 100%; box-sizing: border-box; }
       #filters button { margin: 0 5px 5px 0; }
-      #list { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+      #list { display: grid; gap: 1rem; grid-template-columns: 1fr; }
       @media (min-width: 768px) {
         #list { grid-template-columns: repeat(2, 1fr); }
       }
       .card {
-        border: 1px solid #ccc;
-        padding: 1rem;
-        background: #fff;
-        border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: 1px solid #ccc; padding: 1rem; background: #fff;
+        border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
       .card h3 {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        display: flex; justify-content: space-between; align-items: center;
         margin: 0 0 0.5em;
       }
       .fav-btn {
-        background: none;
-        border: none;
-        font-size: 1.2em;
-        cursor: pointer;
-        color: gold;
-        line-height: 1;
+        background: none; border: none; font-size: 1.2em;
+        cursor: pointer; color: gold; line-height: 1;
       }
       .tags li {
-        display: inline-block;
-        background: #eef;
-        padding: 2px 6px;
-        margin: 2px;
-        border-radius: 4px;
-        font-size: .85em;
+        display: inline-block; background: #eef; padding: 2px 6px;
+        margin: 2px; border-radius: 4px; font-size: .85em;
       }
       #pagination {
-        margin-top: 20px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        margin-top: 20px; display: flex; align-items: center; gap: 10px;
       }
       #pagination button { padding: 6px 12px; }
       @media (max-width: 600px) {
@@ -130,10 +115,7 @@ try {
     </div>
 
     <!-- Список статей -->
-    <div id="list" data-articles={JSON.stringify(
-      // рандомизируем порядок при каждом рендере
-      articles.sort(() => Math.random() - 0.5)
-    )}></div>
+    <div id="list" data-articles={JSON.stringify(articles)}></div>
 
     <!-- Пагинация -->
     <div id="pagination">
@@ -151,18 +133,15 @@ try {
         const nextBtn  = document.getElementById('next');
         const pageInfo = document.getElementById('page-info');
 
-        const all = JSON.parse(listEl.dataset.articles);
-        let filtered = all.slice();
-        const pageSize = 20;
+        let all       = JSON.parse(listEl.dataset.articles);
+        let filtered  = all.slice();
+        const pageSize  = 20;
         let currentPage = 1;
-
-        // Избранное из localStorage
-        let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+        let favorites   = JSON.parse(localStorage.getItem('favorites') || '[]');
 
         function renderPage() {
           const start = (currentPage - 1) * pageSize;
           const pageItems = filtered.slice(start, start + pageSize);
-
           listEl.innerHTML = pageItems.map(a => {
             const isFav = favorites.includes(a.link);
             return `
@@ -170,8 +149,8 @@ try {
                 <h3>
                   <a href="${a.link}" target="_blank">${a.title}</a>
                   <button class="fav-btn" data-link="${a.link}"
-                          title="${isFav ? 'Убрать из избранного' : 'В избранное'}">
-                    ${isFav ? '★' : '☆'}
+                          title="${isFav?'Убрать':'В избранное'}">
+                    ${isFav?'★':'☆'}
                   </button>
                 </h3>
                 <p>${a.summary}</p>
@@ -195,48 +174,35 @@ try {
         function applyFilter() {
           const q = inputEl.value.trim().toLowerCase();
           const activeTag = filtEl.querySelector('button.active')?.dataset.tag || '';
-
           filtered = all.filter(a => {
-            if (activeTag === 'favorites') {
-              return favorites.includes(a.link);
-            }
+            if (activeTag === 'favorites') return favorites.includes(a.link);
             return !activeTag || a.tags.includes(activeTag);
-          }).filter(a => {
-            return !q
-              || a.title.toLowerCase().includes(q)
-              || a.summary.toLowerCase().includes(q);
-          });
-
+          }).filter(a => !q
+            || a.title.toLowerCase().includes(q)
+            || a.summary.toLowerCase().includes(q)
+          );
           currentPage = 1;
           renderPage();
         }
 
         // События
         filtEl.addEventListener('click', e => {
-          if (e.target.tagName !== 'BUTTON') return;
-          filtEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+          if (e.target.tagName!=='BUTTON') return;
+          filtEl.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
           e.target.classList.add('active');
           applyFilter();
         });
-
         listEl.addEventListener('click', e => {
           if (!e.target.classList.contains('fav-btn')) return;
           const link = e.target.dataset.link;
           const idx = favorites.indexOf(link);
-          if (idx >= 0) favorites.splice(idx, 1);
-          else favorites.push(link);
+          idx>=0 ? favorites.splice(idx,1) : favorites.push(link);
           localStorage.setItem('favorites', JSON.stringify(favorites));
           renderPage();
         });
-
         inputEl.addEventListener('input', applyFilter);
-        prevBtn.addEventListener('click', () => {
-          if (currentPage > 1) { currentPage--; renderPage(); }
-        });
-        nextBtn.addEventListener('click', () => {
-          const totalPages = Math.ceil(filtered.length / pageSize) || 1;
-          if (currentPage < totalPages) { currentPage++; renderPage(); }
-        });
+        prevBtn.addEventListener('click', ()=>{ if(currentPage>1){currentPage--;renderPage();}});
+        nextBtn.addEventListener('click', ()=>{ const tot=Math.ceil(filtered.length/pageSize)||1; if(currentPage<tot){currentPage++;renderPage();}});
 
         // Инициализация
         filtEl.querySelector('button[data-tag=""]').classList.add('active');
@@ -244,35 +210,38 @@ try {
       })();
     </script>
 
+    <!-- Виджет Telegram -->
+    {lastPostId ? (
+      <div style="max-width:600px; margin:2rem auto;">
+        <script async
+                src="https://telegram.org/js/telegram-widget.js?22"
+                data-telegram-post={`${CHANNEL}/${lastPostId}`}
+                data-width="100%">
+        </script>
+      </div>
+    ) : (
+      <div style="max-width:600px; margin:2rem auto;">
+        <script async
+                src="https://telegram.org/js/telegram-widget.js?22"
+                data-telegram-channel={CHANNEL}
+                data-width="100%">
+        </script>
+      </div>
+    )}
+
+    <!-- Футер с подписью -->
     <footer style="
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #ddd;
-      font-size: 0.9em;
-      color: #555;
-      text-align: center;
+      margin-top: 40px; padding-top: 20px;
+      border-top: 1px solid #ddd; font-size: 0.9em;
+      color: #555; text-align: center;
     ">
       <p>© 2025 Борис Ишкин</p>
       <p>
         Мой сайт:
-        <a href="https://ishkin.ru" target="_blank" rel="noopener">ishkin.ru</a> |
+        <a href="https://ishkin.ru" target="_blank">ishkin.ru</a> |
         Телеграм:
-        <a href="https://t.me/analytics_today" target="_blank" rel="noopener">@analytics_today</a>
+        <a href="https://t.me/analytics_today" target="_blank">@analytics_today</a>
       </p>
-
-      {latestPost && (
-        <aside style="margin-top:2rem; padding:1rem; border-top:1px solid #ddd;">
-          <h2 style="margin-bottom:0.5rem;">Последнее в Telegram</h2>
-          <a href={latestPost.link} target="_blank" rel="noopener" style="font-weight:bold; text-decoration:none;">
-            {latestPost.title}
-          </a>
-          {latestPost.contentSnippet && (
-            <p style="margin-top:0.5rem; color:#555;">
-              {latestPost.contentSnippet}
-            </p>
-          )}
-        </aside>
-      )}
     </footer>
   </body>
 </html>
