@@ -1,34 +1,66 @@
 ---
 import { fetchArticles } from '../data/articles';
+import RSSParser from 'rss-parser';
+
 const articles = await fetchArticles();
 const uniqueTags = Array.from(
   new Set(articles.flatMap(a => a.tags))
 ).sort();
----
 
+// —————————————————————————————————————————————————————————————————————————————
+// Парсим RSS последнего поста Telegram через RSSHub
+// —————————————————————————————————————————————————————————————————————————————
+const CHANNEL = 'analytics_today';
+const RSS_URL = `https://rsshub.app/telegram/channel/${CHANNEL}`;
+let latestPost = null;
+
+try {
+  const parser = new RSSParser({
+    customFields: {
+      item: [['description', 'contentSnippet']]
+    }
+  });
+  const feed = await parser.parseURL(RSS_URL);
+  latestPost = feed.items[0];
+} catch (e) {
+  console.warn('Не удалось получить ленту TG:', e);
+}
+---
+<!DOCTYPE html>
 <html lang="ru">
   <head>
-<link rel="icon" href="/favicon.ico" type="image/x-icon" />
-<!-- Yandex.Metrika counter -->
-<script type="text/javascript" >
-   (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-   m[i].l=1*new Date();
-   for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
-   k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
-   (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Digest</title>
 
-   ym(103118856, "init", {
+    <!-- Yandex.Metrika counter -->
+    <script type="text/javascript">
+      (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++){
+          if (document.scripts[j].src === r) return;
+        }
+        k=e.createElement(t), a=e.getElementsByTagName(t)[0];
+        k.async=1; k.src=r; a.parentNode.insertBefore(k,a);
+      })
+      (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+      ym(103118856, "init", {
         clickmap:true,
         trackLinks:true,
         accurateTrackBounce:true,
         webvisor:true
-   });
-</script>
-<noscript><div><img src="https://mc.yandex.ru/watch/103118856" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
-<!-- /Yandex.Metrika counter -->
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Project Digest</title>
+      });
+    </script>
+    <noscript>
+      <div>
+        <img src="https://mc.yandex.ru/watch/103118856"
+             style="position:absolute; left:-9999px;" alt="" />
+      </div>
+    </noscript>
+    <!-- /Yandex.Metrika counter -->
+
     <style>
       body { font-family: sans-serif; padding: 20px; }
       header, footer { text-align: center; padding: 2rem 1rem; }
@@ -83,7 +115,9 @@ const uniqueTags = Array.from(
     </style>
   </head>
   <body>
-    <h1>Дайджест по управлению проектами</h1>
+    <header>
+      <h1>Дайджест по управлению проектами</h1>
+    </header>
 
     <!-- Поиск -->
     <input id="search" type="text" placeholder="Поиск…" />
@@ -96,7 +130,10 @@ const uniqueTags = Array.from(
     </div>
 
     <!-- Список статей -->
-    <div id="list" data-articles={JSON.stringify(articles)}></div>
+    <div id="list" data-articles={JSON.stringify(
+      // рандомизируем порядок при каждом рендере
+      articles.sort(() => Math.random() - 0.5)
+    )}></div>
 
     <!-- Пагинация -->
     <div id="pagination">
@@ -114,13 +151,12 @@ const uniqueTags = Array.from(
         const nextBtn  = document.getElementById('next');
         const pageInfo = document.getElementById('page-info');
 
-        <!-- const all       = JSON.parse(listEl.dataset.articles); -->
-        const all = JSON.parse(listEl.dataset.articles).sort(() => Math.random() - 0.5);
-        let filtered    = all.slice();
-        const pageSize  = 20;
+        const all = JSON.parse(listEl.dataset.articles);
+        let filtered = all.slice();
+        const pageSize = 20;
         let currentPage = 1;
 
-        // Загрузка/инициализация списка избранных
+        // Избранное из localStorage
         let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
 
         function renderPage() {
@@ -130,22 +166,24 @@ const uniqueTags = Array.from(
           listEl.innerHTML = pageItems.map(a => {
             const isFav = favorites.includes(a.link);
             return `
-            <article class="card">
-              <h3>
-                <a href="${a.link}" target="_blank">${a.title}</a>
-                <button class="fav-btn" data-link="${a.link}" title="${isFav ? 'Убрать из избранного' : 'В избранное'}">
-                  ${isFav ? '★' : '☆'}
-                </button>
-              </h3>
-              <p>${a.summary}</p>
-              ${ a.pdf
+              <article class="card">
+                <h3>
+                  <a href="${a.link}" target="_blank">${a.title}</a>
+                  <button class="fav-btn" data-link="${a.link}"
+                          title="${isFav ? 'Убрать из избранного' : 'В избранное'}">
+                    ${isFav ? '★' : '☆'}
+                  </button>
+                </h3>
+                <p>${a.summary}</p>
+                ${a.pdf
                   ? `<p><a href="${a.pdf}" target="_blank" rel="noopener">PDF</a></p>`
-                  : '' }
-              ${ a.tags.length
+                  : ''
+                }
+                ${a.tags.length
                   ? `<ul class="tags">${a.tags.map(t=>`<li>${t}</li>`).join('')}</ul>`
                   : ''
-              }
-            </article>`;
+                }
+              </article>`;
           }).join('');
 
           const totalPages = Math.ceil(filtered.length / pageSize) || 1;
@@ -173,7 +211,7 @@ const uniqueTags = Array.from(
           renderPage();
         }
 
-        // Обработчик клика по кнопке-фильтру
+        // События
         filtEl.addEventListener('click', e => {
           if (e.target.tagName !== 'BUTTON') return;
           filtEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
@@ -181,7 +219,6 @@ const uniqueTags = Array.from(
           applyFilter();
         });
 
-        // Переключение избранного
         listEl.addEventListener('click', e => {
           if (!e.target.classList.contains('fav-btn')) return;
           const link = e.target.dataset.link;
@@ -208,9 +245,12 @@ const uniqueTags = Array.from(
     </script>
 
     <footer style="
-      margin-top: 40px; padding-top: 20px;
-      border-top: 1px solid #ddd; font-size: 0.9em;
-      color: #555; text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+      font-size: 0.9em;
+      color: #555;
+      text-align: center;
     ">
       <p>© 2025 Борис Ишкин</p>
       <p>
@@ -219,7 +259,20 @@ const uniqueTags = Array.from(
         Телеграм:
         <a href="https://t.me/analytics_today" target="_blank" rel="noopener">@analytics_today</a>
       </p>
-    </footer>
 
+      {latestPost && (
+        <aside style="margin-top:2rem; padding:1rem; border-top:1px solid #ddd;">
+          <h2 style="margin-bottom:0.5rem;">Последнее в Telegram</h2>
+          <a href={latestPost.link} target="_blank" rel="noopener" style="font-weight:bold; text-decoration:none;">
+            {latestPost.title}
+          </a>
+          {latestPost.contentSnippet && (
+            <p style="margin-top:0.5rem; color:#555;">
+              {latestPost.contentSnippet}
+            </p>
+          )}
+        </aside>
+      )}
+    </footer>
   </body>
 </html>
